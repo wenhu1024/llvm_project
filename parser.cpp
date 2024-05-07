@@ -9,4 +9,10 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "lexer.h"
+
+int CurTok;
+int getNextToken(){
+    return CurTok=gettok();
+}
 

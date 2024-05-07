@@ -1,6 +1,11 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+
+#include <map>
+#include <memory>
+#include <ast.h>
+
 extern int CurTok;
 extern std::map<char,int> BinopPrecedence;
 
