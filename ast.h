@@ -1,7 +1,6 @@
 #ifndef AST_H
 #define AST_H
 
-// using namespace llvm;
 
 #include <string>
 #include <vector>
