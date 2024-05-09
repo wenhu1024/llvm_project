@@ -9,7 +9,7 @@ inline std::unique_ptr<ExprAST> LogError(const char* Str){
     return nullptr;
 }
 
-inline std::unique_ptr<ExprAST> LogErrorP(const char* Str){
+inline std::unique_ptr<PrototypeAST> LogErrorP(const char* Str){
     LogError(Str);
     return nullptr;
 }

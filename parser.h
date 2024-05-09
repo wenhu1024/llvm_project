@@ -4,7 +4,7 @@
 
 #include <map>
 #include <memory>
-#include <ast.h>
+#include "ast.h"
 
 extern int CurTok;
 extern std::map<char,int> BinopPrecedence;
