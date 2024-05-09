@@ -1,3 +1,0 @@
-/home/wenhu/llvm_project/build/CMakeFiles/kaleidoscope.dir
-/home/wenhu/llvm_project/build/CMakeFiles/edit_cache.dir
-/home/wenhu/llvm_project/build/CMakeFiles/rebuild_cache.dir

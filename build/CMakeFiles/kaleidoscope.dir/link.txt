@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/kaleidoscope.dir/driver.cpp.o CMakeFiles/kaleidoscope.dir/lexer.cpp.o CMakeFiles/kaleidoscope.dir/parser.cpp.o -o kaleidoscope 
