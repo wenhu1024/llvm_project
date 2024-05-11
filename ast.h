@@ -49,6 +49,8 @@ private:
 
 public:
     VariableExprAST(const std::string &Name) : Name(Name) {}
+    
+    Value *codegen() override;
 };
 
 class BinaryExprASTP : public ExprAST
@@ -60,6 +62,8 @@ private:
 public:
     BinaryExprASTP(char Op, std::unique_ptr<ExprAST> LHS, std::unique_ptr<ExprAST> RHS)
         : Op(Op), LHS(std::move(LHS)), RHS(std::move(RHS)) {}
+    
+    Value *codegen() override;
 };
 
 class CallExprAST : public ExprAST
@@ -71,6 +75,8 @@ public:
     CallExprAST(const std::string& Callee,
         std::vector<std::unique_ptr<ExprAST>> Args)
         :Callee(Callee),Args(std::move(Args)){}
+
+    Value *codegen() override;
 };
 
 class PrototypeAST{
@@ -81,6 +87,8 @@ public:
     PrototypeAST(const std::string & Name,std::vector<std::string> Args)
         :Name(Name),Args(std::move(Args)){}
 
+    Function *codegen();
+    
     const std::string &getName() const {return Name;}
 };
 
@@ -93,6 +101,8 @@ public:
     FunctionAST(std::unique_ptr<PrototypeAST> Proto,
         std::unique_ptr<ExprAST> Body)
         : Proto(std::move(Proto)),Body(std::move(Body)){}
+    
+    Function *codegen();
 };
 
 #endif

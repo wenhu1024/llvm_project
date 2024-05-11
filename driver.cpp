@@ -1,3 +1,14 @@
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -10,22 +21,39 @@
 #include <utility>
 #include <vector>
 #include "ast.h"
-// #include "codegen.h"
+#include "codegen.h"
 #include "parser.h"
 #include "lexer.h"
+#include "log.h"
+
+using namespace llvm;
+
 
 /*/////////////////////////////////////
  *
- *   Top-level Parse
+ *   Top-level Parse and JIT Driver
  *
  */
 ////////////////////////////////////
+void InitializeModule(){
+    //  open a new context and module
+    TheContext=std::make_unique<LLVMContext>();
+    TheModule=std::make_unique<Module>("my cool jit",*TheContext);
+
+    //  create a new builder for the module
+    Builder=std::make_unique<IRBuilder<>>(*TheContext);
+}
+
 
 void HandleDefinition()
 {
-    if (ParseDefinition())
+    if (auto FnAST=ParseDefinition())
     {
-        fprintf(stderr, "Parsed a function definition.\n");
+        if(auto *FnIR=FnAST->codegen()){
+            fprintf(stderr, "Read a function definition:");
+            FnIR->print(errs());
+            fprintf(stderr,"\n");
+        }
     }
     else
     {
@@ -36,9 +64,13 @@ void HandleDefinition()
 
 void HandleExtern()
 {
-    if (ParseExtern())
+    if (auto ProtoAST=ParseExtern())
     {
-        fprintf(stderr, "Parsed an extern.\n");
+        if(auto *FnIR=ProtoAST->codegen()){
+            fprintf(stderr, "Read extern:");
+            FnIR->print(errs());
+            fprintf(stderr,"\n");
+        }
     }
     else
     {
@@ -49,9 +81,16 @@ void HandleExtern()
 
 void HandleTopLevelExpression()
 {
-    if (ParseTopLevelExpr())
+    if (auto FnAST=ParseTopLevelExpr())
     {
-        fprintf(stderr, "Parsed a top-level expr.\n");
+        if(auto *FnIR=FnAST->codegen()){
+            fprintf(stderr, "Read top-level expression:");
+            FnIR->print(errs());
+            fprintf(stderr,"\n");
+
+            //  remove the annoymous expression
+            FnIR->eraseFromParent();
+        }
     }
     else
     {
@@ -99,8 +138,15 @@ int main()
     fprintf(stderr, "ready> ");
     getNextToken();
 
+
+    // Make the module, which holds all the code.
+    InitializeModule();
+
     // Run the main "interpreter loop" now.
     MainLoop();
+
+    // Print out all of the generated code.
+    TheModule->print(errs(), nullptr);
 
     return 0;
 }
