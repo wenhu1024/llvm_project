@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
-project(toy LANGUAGES CXX)
+project(toy)
 
 # 添加可执行文件
 add_executable(toy driver.cpp lexer.cpp parser.cpp codegen.cpp)
