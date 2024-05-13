@@ -1,12 +1,13 @@
 
 ## Environment 
-   1. Linux
-   2. Cmake
+   1. Ubuntu 22.04
+   2. Cmake 3.22
+   3. LLVM toolchain version 14.0
 <br/>
 
 
 ## how to run 
-cd [this_project]
+cd [this_project_name]
 
 ```bash
 mkdir build && cd build && cmake .. && cmake --build . && ./kaleidoscope

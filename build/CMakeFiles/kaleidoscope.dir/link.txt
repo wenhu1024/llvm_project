@@ -1,1 +1,0 @@
-clang++ CMakeFiles/kaleidoscope.dir/driver.cpp.o CMakeFiles/kaleidoscope.dir/lexer.cpp.o CMakeFiles/kaleidoscope.dir/parser.cpp.o CMakeFiles/kaleidoscope.dir/codegen.cpp.o -o kaleidoscope 

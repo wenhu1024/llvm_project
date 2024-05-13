@@ -19,14 +19,14 @@
 #include <vector>
 #include "ast.h"
 #include "log.h"
-
+#include <iostream>
 using namespace llvm;
 
 
-static std::unique_ptr<LLVMContext> TheContext;
-static std::unique_ptr<Module> TheModule;
-static std::unique_ptr<IRBuilder<>> Builder;
-static std::map<std::string, Value *> NamedValues;
+std::unique_ptr<LLVMContext> TheContext;
+std::unique_ptr<Module> TheModule;
+std::unique_ptr<IRBuilder<>> Builder;
+std::map<std::string, Value *> NamedValues;
 
 
 /*///////////////////////////////////////////
@@ -51,7 +51,8 @@ Value *NumberExprAST::codegen(){
 
 
 Value *VariableExprAST::codegen(){
-    // look this variable up through 'NamedValues'
+    //  look this variable up through 'NamedValues'
+    //  In practice, the only values that can be in the NamedValues map are function arguments. 1
     Value *V =NamedValues[Name];
     if(!V){
         LogError("Unknown variable name");
@@ -135,7 +136,6 @@ Function *FunctionAST::codegen(){
     // check for an existing fucntion from a previous 'extern' declaration
 
     Function *TheFunction =TheModule->getFunction(Proto->getName());
-
     if(!TheFunction){
         TheFunction=Proto->codegen();
     }
@@ -163,6 +163,7 @@ Function *FunctionAST::codegen(){
     for(auto &Arg: TheFunction->args()){
         NamedValues[std::string(Arg.getName())]=&Arg;
     }
+
 
     if(Value *RetVal=Body->codegen()){
         //  finish off the function
