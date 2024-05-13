@@ -1,7 +1,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-
+#include "KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -24,6 +24,7 @@
 #include "ast.h"
 
 using namespace llvm;
+using namespace llvm::orc;   // the name 'KaleidoscopeJIT' is in the namespace llvm::orc 
 
 extern int CurTok;
 extern std::map<char,int> BinopPrecedence;

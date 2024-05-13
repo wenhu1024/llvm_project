@@ -1,3 +1,4 @@
+#include "KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -6,11 +7,19 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include <algorithm>
+#include <cassert>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -19,15 +28,18 @@
 #include <vector>
 #include "ast.h"
 #include "log.h"
-#include <iostream>
-using namespace llvm;
 
+using namespace llvm;
+using namespace llvm::orc;   // the name 'KaleidoscopeJIT' is in the namespace llvm::orc 
 
 std::unique_ptr<LLVMContext> TheContext;
 std::unique_ptr<Module> TheModule;
 std::unique_ptr<IRBuilder<>> Builder;
 std::map<std::string, Value *> NamedValues;
-
+std::unique_ptr<legacy::FunctionPassManager> TheFPM;
+std::unique_ptr<KaleidoscopeJIT> TheJIT;
+std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+ExitOnError ExitOnErr;
 
 /*///////////////////////////////////////////
 *
@@ -43,6 +55,26 @@ Value *LogErrorV(const char * Str){
     LogError(Str);
     return nullptr;
 }
+
+
+
+Function *getFunction(std::string Name){
+    //  first, look the function up in the current modlue
+    if(auto *F=TheModule->getFunction(Name)){
+        return F;
+    }
+
+    //  If not, check whether we can codegen the declaration from some existing
+    //  prototype.
+    auto FI=FunctionProtos.find(Name);
+    if(FI != FunctionProtos.end()){
+        return FI->second->codegen();
+    }
+
+    //  If no existing prototype exists, return null.
+    return nullptr;
+}
+
 
 
 Value *NumberExprAST::codegen(){
@@ -86,7 +118,7 @@ Value *BinaryExprASTP::codegen(){
 
 Value *CallExprAST::codegen(){
     // look the fuction name through 'getFunction'
-    Function *CalleeF=TheModule->getFunction(Callee);
+    Function *CalleeF=getFunction(Callee);
     if(!CalleeF){
         return LogErrorV("Unknown function referenced");
     }
@@ -133,21 +165,12 @@ Function *PrototypeAST::codegen(){
 /// extern foo(a);     # ok, defines foo.
 /// def foo(b) b;      # Error: Unknown variable name. (decl using 'a' takes precedence).
 Function *FunctionAST::codegen(){
-    // check for an existing fucntion from a previous 'extern' declaration
 
-    Function *TheFunction =TheModule->getFunction(Proto->getName());
-    if(!TheFunction){
-        TheFunction=Proto->codegen();
-    }
-
-    // NOTE: if TheFunction is still nullptr, it shows that Proto->codegen not work 
-    // accordingly, just return nullptr
+    auto &P=*Proto;
+    FunctionProtos[Proto->getName()] = std::move(Proto);
+    Function *TheFunction =getFunction(P.getName());
     if(!TheFunction){
         return nullptr;
-    }
-
-    if(!TheFunction->empty()){
-        return (Function*)LogErrorV("Function cannot be redefined.");
     }
 
     //  create a basic block named "entry",which is inserted into TheFunction
@@ -172,6 +195,9 @@ Function *FunctionAST::codegen(){
         //  Validate the generated code
         //  catch lots of bugs
         verifyFunction(*TheFunction);
+
+        //  optimize the function
+        TheFPM->run(*TheFunction);
 
         return TheFunction;
     }

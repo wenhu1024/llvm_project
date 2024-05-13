@@ -1,3 +1,4 @@
+#include "KaleidoscopeJIT.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/BasicBlock.h"
@@ -6,11 +7,19 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include <algorithm>
+#include <cassert>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -24,7 +33,7 @@
 #include "log.h"
 
 using namespace llvm;
-
+using namespace llvm::orc;   // the name 'KaleidoscopeJIT' is in the namespace llvm::orc 
 
 /*/////////////////////////////////////
  *
@@ -32,13 +41,30 @@ using namespace llvm;
  *
  */
 ////////////////////////////////////
-void InitializeModule(){
+void InitializeModuleAndPassManager(){
     //  open a new context and module
     TheContext=std::make_unique<LLVMContext>();
     TheModule=std::make_unique<Module>("my cool jit",*TheContext);
+    
+    TheModule->setDataLayout(TheJIT->getDataLayout());
+
 
     //  create a new builder for the module
     Builder=std::make_unique<IRBuilder<>>(*TheContext);
+
+    //  Create a new pass manager attached to it.
+    TheFPM=std::make_unique<legacy::FunctionPassManager>(TheModule.get());
+
+    // Do simple "peephole" optimizations and bit-twiddling optzns.
+    TheFPM->add(createInstructionCombiningPass());
+    // Reassociate expressions.
+    TheFPM->add(createReassociatePass());
+    // Eliminate Common SubExpressions.
+    TheFPM->add(createGVNPass());
+    // Simplify the control flow graph (deleting unreachable blocks, etc).
+    TheFPM->add(createCFGSimplificationPass());
+
+    TheFPM->doInitialization();
 }
 
 
@@ -50,6 +76,9 @@ void HandleDefinition()
             fprintf(stderr, "Read a function definition:");
             FnIR->print(errs());
             fprintf(stderr,"\n");
+            ExitOnErr(TheJIT->addModule(
+                ThreadSafeModule(std::move(TheModule), std::move(TheContext))));
+            InitializeModuleAndPassManager();
         }
     }
     else
@@ -67,6 +96,7 @@ void HandleExtern()
             fprintf(stderr, "Read extern:");
             FnIR->print(errs());
             fprintf(stderr,"\n");
+            FunctionProtos[ProtoAST->getName()]=std::move(ProtoAST);
         }
     }
     else
@@ -78,15 +108,23 @@ void HandleExtern()
 
 void HandleTopLevelExpression()
 {
+    //  Evaluate a top-level expression into an anonymous function.
     if (auto FnAST=ParseTopLevelExpr())
     {
-        if(auto *FnIR=FnAST->codegen()){
-            fprintf(stderr, "Read top-level expression:");
-            FnIR->print(errs());
-            fprintf(stderr,"\n");
+        if(FnAST->codegen()){
+            auto RT=TheJIT->getMainJITDylib().createResourceTracker();
 
-            //  remove the annoymous expression
-            FnIR->eraseFromParent();
+            auto TSM=ThreadSafeModule(std::move(TheModule),std::move(TheContext));
+            ExitOnErr(TheJIT->addModule(std::move(TSM),RT));
+            InitializeModuleAndPassManager();
+            
+            auto ExprSymbol=ExitOnErr(TheJIT->lookup("__anon_expr"));
+            double (*FP)() =(double (*)())(intptr_t)ExprSymbol.getAddress();
+            fprintf(stderr,"Evaluated to %f\n",FP());
+
+            //  Delete the anonymous expression module from the JIT.
+            //  Accordingly, the defined function will be free along with it
+            ExitOnErr(RT->remove());
         }
     }
     else
@@ -124,6 +162,11 @@ void MainLoop()
 
 int main()
 {
+    InitializeNativeTarget();
+    InitializeNativeTargetAsmPrinter();
+    InitializeNativeTargetAsmParser();
+
+
     // Install standard binary operators.
     // 1 is lowest precedence.
     BinopPrecedence['<'] = 10;
@@ -136,14 +179,11 @@ int main()
     getNextToken();
 
 
-    // Make the module, which holds all the code.
-    InitializeModule();
+    TheJIT = ExitOnErr(KaleidoscopeJIT::Create());
+    InitializeModuleAndPassManager();
 
     // Run the main "interpreter loop" now.
     MainLoop();
-
-    // Print out all of the generated code.
-    TheModule->print(errs(), nullptr);
 
     return 0;
 }

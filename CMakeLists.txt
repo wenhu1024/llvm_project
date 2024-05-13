@@ -10,5 +10,16 @@ include_directories(${LLVM_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
 # 链接 LLVM 相关的库
-llvm_map_components_to_libnames(llvm_libs core support)
+llvm_map_components_to_libnames(llvm_libs Analysis
+Core
+ExecutionEngine
+InstCombine
+Object
+OrcJIT
+RuntimeDyld
+ScalarOpts
+Support
+native)
+
+
 target_link_libraries(toy ${llvm_libs})

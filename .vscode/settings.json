@@ -59,6 +59,9 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "variant": "cpp",
-        "derivedtypes.h": "c"
+        "derivedtypes.h": "c",
+        "iostream": "cpp",
+        "istream": "cpp",
+        "future": "cpp"
     }
 }
