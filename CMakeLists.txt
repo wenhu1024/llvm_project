@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(toy)
 
+
+# 设置编译命令导出
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(CMAKE_CXX_STANDARD 17)
+
 # 添加可执行文件
 add_executable(toy driver.cpp lexer.cpp parser.cpp codegen.cpp)
 
